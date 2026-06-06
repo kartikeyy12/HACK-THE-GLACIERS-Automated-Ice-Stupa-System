@@ -1,58 +1,12 @@
 /**
  * ╔══════════════════════════════════════════════════════════════╗
- * ║   ICE STUPA FREEZE PREVENTION SYSTEM v1.1                   ║
- * ║   Platform  : ESP32 (Arduino Framework)                     ║
- * ║   Author    : [Your Name]                                    ║
- * ║   License   : MIT                                           ║
+ * ║   ICE STUPA FREEZE PREVENTION SYSTEM v1.1                    ║
+ * ║   Platform  : ESP32 (Arduino Framework)                      ║
+ * ║   Author    : Kartikey Tiwari                                ║
+ * ║   License   : MIT                                            ║
  * ║   Target    : Autonomous pipe freeze detection & mitigation  ║
  * ╚══════════════════════════════════════════════════════════════╝
- *
- *  CHANGELOG v1.0 → v1.1
- *  ─────────────────────────────────────────────────────────────
- *  FIX-01 [CRITICAL]   flushAttemptCount was unconditionally reset inside
- *                      handle_MONITORING(), making CRITICAL_ALERT unreachable.
- *                      The MONITORING → FLUSHING → MONITORING cycle would reset
- *                      the counter every pass, so flushAttemptCount never
- *                      accumulated to MAX_FLUSH_ATTEMPTS (3). Counter now resets
- *                      only on confirmed safe recovery (entry into IDLE).
- *
- *  FIX-02 [CRITICAL]   Entry action guards using (timeInState < 100ms) were
- *                      executing on every loop() iteration for the full 100ms
- *                      window. Since loop() runs in < 1ms between DS18B20 reads,
- *                      this caused:
- *                        - flushAttemptCount++ firing hundreds of times,
- *                          instantly maxing the counter on the first flush.
- *                        - setValve(!valveOpen) toggling the valve hundreds of
- *                          times in VALVE_EXERCISE, stressing the motor/MOSFET.
- *                      Replaced with a stateEntryPending boolean flag set by
- *                      transitionTo() and cleared exactly once per state entry.
- *
- *  FIX-03 [FUNCTIONAL] handle_SENSOR_FAULT() called tempSensor.requestTemperatures()
- *                      on every loop() iteration without an interval guard. This
- *                      is a 750ms synchronous blocking call, creating a continuous
- *                      750ms blocking loop while in SENSOR_FAULT — breaking LED
- *                      blink timing, serial print intervals, and the scheduler.
- *                      Added FAULT_RECOVERY_INTERVAL_MS (5s) rate-limiting guard.
- *
- *  FIX-04 [MINOR]      updateFlowRate() called millis() twice for elapsed_ms
- *                      computation and lastFlowCalcTime assignment, introducing
- *                      a systematic timing skew. Fixed with a single 'now' read.
- *
- *  FIX-05 [MINOR]      FLUSHING progress log used (timeInState % 5000 < 100),
- *                      which fires multiple times per window when loop() runs
- *                      faster than 100ms. Replaced with a static lastFlushPrint
- *                      tracker following the established millis() pattern.
- *
- *  FIX-06 [MINOR]      handle_VALVE_EXERCISE() printed its log message on every
- *                      loop() iteration (outside any guard). Moved inside the
- *                      entry action block so it prints exactly once per exercise.
- *
- *  FIX-07 [MINOR]      VALVE_EXERCISE and SENSOR_FAULT states were absent from
- *                      checkValveExerciseSchedule()'s exclusion list. After 6h
- *                      in SENSOR_FAULT, the scheduler would fire unnecessarily.
- *                      Both states added to the guard.
- */
-
+**/
 #include <Arduino.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
@@ -641,18 +595,6 @@ void setup() {
     // Begin state machine — SELF_TEST runs on first loop() iteration
     transitionTo(SystemState::SELF_TEST);
 }
-
-// ─────────────────────────────────────────────
-//  MAIN LOOP — Non-blocking cooperative scheduler
-//
-//  Execution order per iteration:
-//    1. Sensor updates (always run — non-blocking via millis() guards)
-//    2. Scheduled maintenance check
-//    3. Current state handler dispatch
-//
-//  Note: updateTemperature() blocks for ~750ms at the 2s interval
-//  boundary. All other paths return in < 1ms.
-// ─────────────────────────────────────────────
 void loop() {
     // ── Always-run sensor updates ──
     updateTemperature();    // Non-blocking except at 2s interval (750ms DS18B20 read)
