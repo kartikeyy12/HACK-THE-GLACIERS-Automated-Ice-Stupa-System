@@ -624,33 +624,7 @@ For volumetric change detection (comparing two scans taken weeks apart), the sen
 
 ---
 
-## 15. Repository Structure
-
-```
-ice-stupa-scanner/
-├── main.cpp                    ESP32 firmware (Arduino framework)
-├── visualizer.py               Python serial reader, processor, and renderer
-├── README.md                   This file
-├── requirements.txt            Python dependency list
-├── sample_scans/
-│   └── demo_cone_scan.csv      Example point cloud from demo mode
-└── docs/
-    ├── wiring_diagram.png      Annotated wiring photo
-    └── scan_example.png        Screenshot of rendered point cloud
-```
-
-**`requirements.txt`:**
-
-```
-pyserial>=3.5
-numpy>=1.21
-scipy>=1.7
-matplotlib>=3.5
-```
-
----
-
-## 16. License
+## 15. License
 
 This project is released under the **MIT License**.
 
@@ -676,4 +650,3 @@ FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 
 ---
 
-*Built for the Hackster.io community and as an open-source portfolio demonstration. If this project helped you, please star the repository and share your own scan results in the Discussions tab.*
